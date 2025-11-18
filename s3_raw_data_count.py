@@ -1,7 +1,9 @@
+import sys
 from awsglue.context import GlueContext
+from awsglue.utils import getResolvedOptions
 from pyspark.context import SparkContext
 
-# Initialize Glue and Spark
+# Initialize Glue
 glueContext = GlueContext(SparkContext.getOrCreate())
 spark = glueContext.spark_session
 
@@ -17,8 +19,10 @@ tables = [
 for table in tables:
     print(f"\nReading table: {table}")
 
-    dyf = glueContext.create_dynamic_frame.from_catalog(database=database, table_name=table)
-    
+    dyf = glueContext.create_dynamic_frame.from_catalog(
+        database=database,
+        table_name=table
+    )
     df = dyf.toDF()
     
     row_count = df.count()
