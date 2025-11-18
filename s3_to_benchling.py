@@ -51,3 +51,28 @@ def create_benchling_entry(file_name, s3_url, checksum, row_count):
     response.raise_for_status()
     return response.json()
 
+
+def lambda_handler(event, context):
+    """
+    Triggered by S3 upload event.
+    Processes the uploaded CSV and updates Benchling.
+    """
+    for record in event["Records"]:
+        s3_key = record["s3"]["object"]["key"]
+        file_name = s3_key.split("/")[-1]
+        s3_url = f"s3://{S3_BUCKET}/{s3_key}"
+
+        s3_obj = s3.get_object(Bucket=S3_BUCKET, Key=s3_key)
+        stream = s3_obj["Body"]
+
+        data = stream.read()
+        checksum = hashlib.md5(data).hexdigest()
+
+        import io
+        csv_stream = io.StringIO(data.decode("utf-8"))
+        row_count = sum(1 for _ in csv.reader(csv_stream)) - 1
+
+        entry = create_benchling_entry(file_name, s3_url, checksum, row_count)
+        print(f"Processed {file_name}, Benchling entry ID: {entry['id']}")
+
+    return {"status": "success"}
