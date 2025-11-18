@@ -9,18 +9,20 @@ from awsglue.context import GlueContext
 glueContext = GlueContext(SparkContext.getOrCreate())
 spark = glueContext.spark_session
 
-def get_secret(secret_name="phagos-rds-postgresql-credentials", region="eu-north-1"):
-    client = boto3.client("secretsmanager", region_name=region)
+def get_secret():
+    secret_name = "phagos-rds-postgresql-credentials"
+    region_name = "eu-north-1"
+    session = boto3.session.Session()
+    client = session.client(
+        service_name='secretsmanager',
+        region_name=region_name
+    )
     try:
-        response = client.get_secret_value(SecretId=secret_name)
-        return json.loads(response["SecretString"])
+        get_secret_value_response = client.get_secret_value(SecretId=secret_name)
+        return json.loads(get_secret_value_response['SecretString'])
     except ClientError as e:
         print(f"[{datetime.now()}] Error retrieving secret: {e}")
         raise
-
-def count_rows(jdbc_url, props, table_name):
-    df = spark.read.jdbc(url=jdbc_url, table=table_name, properties=props)
-    print(f"[{datetime.now()}] Table {table_name} has {df.count()} rows")
 
 secret = get_secret()
 jdbc_url = f"jdbc:postgresql://{secret['host']}:{secret['port']}/{secret['dbname']}"
@@ -39,4 +41,11 @@ tables = [
 ]
 
 for table in tables:
-    count_rows(jdbc_url, connection_properties, table)
+    print(f"\nReading table: {table}")
+    df = spark.read.jdbc(
+        url=jdbc_url,
+        table=table,
+        properties=connection_properties
+    )
+    row_count = df.count()
+    print(f"✔ Table {table} has {row_count} rows")
